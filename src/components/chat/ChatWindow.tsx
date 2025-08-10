@@ -37,7 +37,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Message, ChatRoom, RoomParticipant, MessageReaction } from '@/types/chat';
 import { cn } from '@/lib/utils';
 import { GroupInfoDialog } from './GroupInfoDialog';
-import { useToast } from '@/hooks/use-toast';
 import { EmojiPicker } from './EmojiPicker';
 import { MessageReactions } from './MessageReactions';
 
@@ -47,7 +46,6 @@ interface ChatWindowProps {
 
 export function ChatWindow({ roomId }: ChatWindowProps) {
   const { profile } = useAuth();
-  const { toast } = useToast();
   const [room, setRoom] = useState<ChatRoom | null>(null);
   const [participants, setParticipants] = useState<RoomParticipant[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -70,7 +68,11 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
     if (roomId) {
       fetchRoomData();
       fetchMessages();
-      subscribeToMessages();
+      const subscription = subscribeToMessages();
+
+      return () => {
+        supabase.removeChannel(subscription);
+      };
     }
   }, [roomId]);
 
@@ -93,7 +95,6 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
     setRoom(roomData);
     setParticipants((participantsData || []) as RoomParticipant[]);
 
-    // Get current user's role
     if (profile) {
       const userParticipant = participantsData?.find(p => p.user_id === profile.id);
       setCurrentUserRole(userParticipant?.role || 'member');
@@ -108,7 +109,6 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
       .order('created_at', { ascending: true });
 
     if (messagesData) {
-      // Fetch reactions for each message
       const messagesWithReactions = await Promise.all(
         messagesData.map(async (message) => {
           const reactions = await fetchMessageReactions(message.id);
@@ -144,9 +144,7 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return channel;
   };
 
   const uploadFile = async (file: File) => {
@@ -162,7 +160,6 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
       .upload(filePath, file);
 
     if (uploadError) {
-      toast({ title: "Error", description: "Failed to upload file", variant: "destructive" });
       setUploading(false);
       return null;
     }
@@ -200,18 +197,12 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
       messageData.reply_to = replyingTo.id;
     }
 
-    const { error } = await supabase
+    await supabase
       .from('messages')
       .insert(messageData);
 
-    if (!error) {
-      setReplyingTo(null);
-      toast({ title: "Success", description: "File sent" });
-    } else {
-      toast({ title: "Error", description: "Failed to send file", variant: "destructive" });
-    }
+    setReplyingTo(null);
 
-    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -234,15 +225,12 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
       messageData.reply_to = replyingTo.id;
     }
 
-    const { error } = await supabase
+    await supabase
       .from('messages')
       .insert(messageData);
 
-    if (!error) {
-      setNewMessage('');
-      setReplyingTo(null);
-    }
-    
+    setNewMessage('');
+    setReplyingTo(null);
     setLoading(false);
   };
 
@@ -267,50 +255,37 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
       })
       .eq('id', messageId);
 
-    if (error) {
-      toast({ title: "Error", description: "Failed to edit message", variant: "destructive" });
-    } else {
+    if (!error) {
       setMessages(prev => prev.map(msg => 
         msg.id === messageId 
           ? { ...msg, content: editContent.trim(), edited_at: new Date().toISOString() }
           : msg
       ));
       cancelEdit();
-      toast({ title: "Success", description: "Message updated" });
     }
   };
 
   const deleteMessage = async (messageId: string) => {
-    const { error } = await supabase
+    await supabase
       .from('messages')
       .delete()
       .eq('id', messageId);
 
-    if (error) {
-      toast({ title: "Error", description: "Failed to delete message", variant: "destructive" });
-    } else {
-      setMessages(prev => prev.filter(msg => msg.id !== messageId));
-      toast({ title: "Success", description: "Message deleted" });
-    }
+    setMessages(prev => prev.filter(msg => msg.id !== messageId));
   };
 
   const deleteSelectedMessages = async () => {
     if (selectedMessages.size === 0) return;
 
     const messageIds = Array.from(selectedMessages);
-    const { error } = await supabase
+    await supabase
       .from('messages')
       .delete()
       .in('id', messageIds);
 
-    if (error) {
-      toast({ title: "Error", description: "Failed to delete messages", variant: "destructive" });
-    } else {
-      setMessages(prev => prev.filter(msg => !selectedMessages.has(msg.id)));
-      setSelectedMessages(new Set());
-      setSelectionMode(false);
-      toast({ title: "Success", description: `${messageIds.length} messages deleted` });
-    }
+    setMessages(prev => prev.filter(msg => !selectedMessages.has(msg.id)));
+    setSelectedMessages(new Set());
+    setSelectionMode(false);
   };
 
   const toggleMessageSelection = (messageId: string) => {
@@ -357,16 +332,9 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
       messageData.reply_to = replyingTo.id;
     }
 
-    const { error } = await supabase
+    await supabase
       .from('messages')
       .insert(messageData);
-
-    if (!error) {
-      setReplyingTo(null);
-      toast({ title: "Success", description: "GIF sent" });
-    } else {
-      toast({ title: "Error", description: "Failed to send GIF", variant: "destructive" });
-    }
   };
 
   const sendSticker = async (sticker: { url: string; title: string }) => {
@@ -385,16 +353,9 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
       messageData.reply_to = replyingTo.id;
     }
 
-    const { error } = await supabase
+    await supabase
       .from('messages')
       .insert(messageData);
-
-    if (!error) {
-      setReplyingTo(null);
-      toast({ title: "Success", description: "Sticker sent" });
-    } else {
-      toast({ title: "Error", description: "Failed to send sticker", variant: "destructive" });
-    }
   };
 
   const insertEmojiInMessage = (emoji: string) => {
@@ -418,52 +379,38 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
     ));
   };
 
-
   const renameRoom = async () => {
     if (!newRoomName.trim() || !room || !profile) return;
 
-    const { error } = await supabase
+    await supabase
       .from('chat_rooms')
       .update({ name: newRoomName.trim() })
       .eq('id', roomId);
 
-    if (error) {
-      toast({ title: "Error", description: "Failed to rename group", variant: "destructive" });
-    } else {
-      setRoom(prev => prev ? { ...prev, name: newRoomName.trim() } : null);
-      setEditingRoomName(false);
-      setNewRoomName('');
-      toast({ title: "Success", description: "Group renamed" });
-    }
+    setRoom(prev => prev ? { ...prev, name: newRoomName.trim() } : null);
+    setEditingRoomName(false);
+    setNewRoomName('');
   };
 
   const deleteRoom = async () => {
     if (!room || !profile) return;
 
-    // First delete all messages in the room
     await supabase
       .from('messages')
       .delete()
       .eq('room_id', roomId);
 
-    // Then delete all participants
     await supabase
       .from('room_participants')
       .delete()
       .eq('room_id', roomId);
 
-    // Finally delete the room
-    const { error } = await supabase
+    await supabase
       .from('chat_rooms')
       .delete()
       .eq('id', roomId);
 
-    if (error) {
-      toast({ title: "Error", description: "Failed to delete group", variant: "destructive" });
-    } else {
-      toast({ title: "Success", description: "Group deleted" });
-      window.location.reload(); // Refresh to update UI
-    }
+    window.location.reload();
   };
 
   const canEditMessage = (message: Message) => {

@@ -4,10 +4,10 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  Plus, 
-  Search, 
-  Settings, 
+import {
+  Plus,
+  Search,
+  Settings,
   LogOut,
   MessageCircle,
   Users,
@@ -40,6 +40,72 @@ export function ChatSidebar({ selectedRoomId, onRoomSelect }: ChatSidebarProps) 
       fetchRooms();
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (profile) {
+      const participantSubscription = supabase
+        .channel(`user_participants:${profile.id}`) // Unique channel for this user
+        .on('postgres_changes', {
+          event: 'INSERT', // Listen for new participations
+          schema: 'public',
+          table: 'room_participants',
+          filter: `user_id=eq.${profile.id}` // Filter by current user
+        }, async (payload) => {
+          console.log('New participant entry received:', payload);
+
+          const newParticipant = payload.new;
+          if (newParticipant) {
+            // Fetch details of the new room
+            const { data: newRoom } = await supabase
+              .from('chat_rooms')
+              .select('*')
+              .eq('id', newParticipant.room_id)
+              .single();
+
+            if (newRoom) {
+              setRooms(prevRooms => {
+                if (!prevRooms.find(room => room.id === newRoom.id)) {
+                  // Fetch full details including participants before adding to state
+                  supabase
+                    .from('chat_rooms')
+                    .select(`
+                      *,
+                      room_participants(
+                        id,
+                        user_id,
+                        role
+                      )
+                    `)
+                    .eq('id', newRoom.id)
+                    .single()
+                    .then(({ data, error }) => {
+                      if (data && !error) {
+                        const transformedRoom = {
+                          ...data,
+                          participants: (data.room_participants || []).map(p => ({
+                            ...p,
+                            room_id: data.id,
+                            joined_at: new Date().toISOString() // Adjust this if you store joined_at
+                          }))
+                        };
+                        setRooms(prev => [transformedRoom as ChatRoomWithDetails, ...prev]); // Add at the beginning
+                      } else if (error) {
+                        console.error('Error fetching detailed new room:', error);
+                      }
+                    });
+                }
+                return prevRooms; // Return previous state while fetching detailed data
+              });
+            }
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(participantSubscription);
+      };
+    }
+  }, [profile]); // Re-run effect if profile changes
 
   const fetchRooms = async () => {
     if (!profile) return;
@@ -166,7 +232,7 @@ export function ChatSidebar({ selectedRoomId, onRoomSelect }: ChatSidebarProps) 
                   )}
                 </AvatarFallback>
               </Avatar>
-              
+
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <p className="font-medium text-sm truncate">{room.name}</p>
@@ -174,7 +240,7 @@ export function ChatSidebar({ selectedRoomId, onRoomSelect }: ChatSidebarProps) 
                     {formatLastSeen(room.updated_at)}
                   </span>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-muted-foreground truncate">
                     {room.description || 'No messages yet...'}
