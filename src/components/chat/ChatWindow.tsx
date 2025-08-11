@@ -5,12 +5,13 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  Send, 
-  Paperclip, 
-  Smile, 
-  Phone, 
-  Video, 
+import { MessageForwarding } from './MessageForwarding';
+import {
+  Send,
+  Paperclip,
+  Smile,
+  Phone,
+  Video,
   MoreVertical,
   Users,
   MessageCircle,
@@ -213,7 +214,7 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
     if (!newMessage.trim() || !profile) return;
 
     setLoading(true);
-    
+
     const messageData: any = {
       room_id: roomId,
       user_id: profile.id,
@@ -249,15 +250,15 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
 
     const { error } = await supabase
       .from('messages')
-      .update({ 
+      .update({
         content: editContent.trim(),
         edited_at: new Date().toISOString()
       })
       .eq('id', messageId);
 
     if (!error) {
-      setMessages(prev => prev.map(msg => 
-        msg.id === messageId 
+      setMessages(prev => prev.map(msg =>
+        msg.id === messageId
           ? { ...msg, content: editContent.trim(), edited_at: new Date().toISOString() }
           : msg
       ));
@@ -367,13 +368,13 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
       .from('message_reactions')
       .select('*')
       .eq('message_id', messageId);
-    
+
     return (data || []) as MessageReaction[];
   };
 
   const updateMessageReactions = (messageId: string, reactions: MessageReaction[]) => {
-    setMessages(prev => prev.map(msg => 
-      msg.id === messageId 
+    setMessages(prev => prev.map(msg =>
+      msg.id === messageId
         ? { ...msg, reactions }
         : msg
     ));
@@ -418,8 +419,8 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
   };
 
   const canDeleteMessage = (message: Message) => {
-    return message.user_id === profile?.id || 
-           (room?.is_group && (currentUserRole === 'admin' || room.created_by === profile?.id));
+    return message.user_id === profile?.id ||
+      (room?.is_group && (currentUserRole === 'admin' || room.created_by === profile?.id));
   };
 
   const isAdmin = () => {
@@ -431,9 +432,9 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
   };
 
   const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    return new Date(timestamp).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -480,9 +481,9 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
                 <Button size="sm" onClick={renameRoom}>
                   <Check className="h-3 w-3" />
                 </Button>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
+                <Button
+                  size="sm"
+                  variant="ghost"
                   onClick={() => {
                     setEditingRoomName(false);
                     setNewRoomName('');
@@ -495,9 +496,9 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold">{room.name}</h3>
                 {room.is_group && isAdmin() && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="h-6 w-6 p-0"
                     onClick={() => {
                       setEditingRoomName(true);
@@ -510,7 +511,7 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
               </div>
             )}
             <p className="text-sm text-muted-foreground">
-              {room.is_group 
+              {room.is_group
                 ? `${participants.length} members`
                 : 'online'
               }
@@ -545,7 +546,7 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
               <DropdownMenuItem>Search Messages</DropdownMenuItem>
               <DropdownMenuItem>Mute Chat</DropdownMenuItem>
               {room.is_group && isAdmin() && (
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   onClick={deleteRoom}
                   className="text-destructive focus:text-destructive"
                 >
@@ -602,7 +603,7 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
             const isOwn = message.user_id === profile?.id;
             const isSelected = selectedMessages.has(message.id);
             const replyMessage = message.reply_to ? messages.find(m => m.id === message.reply_to) : null;
-            
+
             return (
               <div
                 key={message.id}
@@ -620,7 +621,7 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
                     />
                   </div>
                 )}
-                
+
                 {!isOwn && (
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={message.profile?.avatar_url || ''} />
@@ -629,7 +630,7 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
                     </AvatarFallback>
                   </Avatar>
                 )}
-                
+
                 <div className={cn(
                   "max-w-xs lg:max-w-md xl:max-w-lg",
                   isOwn ? "items-end" : "items-start"
@@ -639,7 +640,7 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
                       {message.profile?.username}
                     </p>
                   )}
-                  
+
                   <div className="group relative">
                     {editingMessage === message.id ? (
                       <div className="flex gap-2 items-center">
@@ -692,14 +693,14 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
                               <div className="truncate">{replyMessage.content}</div>
                             </div>
                           )}
-                          
+
                           {/* File Attachment */}
                           {message.message_type === 'file' && message.file_url && (
                             <div className="mb-2">
                               {message.file_name?.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
                                 <div className="relative">
-                                  <img 
-                                    src={message.file_url} 
+                                  <img
+                                    src={message.file_url}
                                     alt={message.file_name}
                                     className="max-w-64 max-h-64 rounded-md cursor-pointer"
                                     onClick={() => window.open(message.file_url, '_blank')}
@@ -734,8 +735,8 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
                           {/* GIF Content */}
                           {message.message_type === 'gif' && message.file_url && (
                             <div className="mb-2">
-                              <img 
-                                src={message.file_url} 
+                              <img
+                                src={message.file_url}
                                 alt={message.content || 'GIF'}
                                 className="max-w-64 max-h-64 rounded-md cursor-pointer"
                                 onClick={() => window.open(message.file_url, '_blank')}
@@ -746,14 +747,14 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
                           {/* Sticker Content */}
                           {message.message_type === 'sticker' && message.file_url && (
                             <div className="mb-2">
-                              <img 
-                                src={message.file_url} 
+                              <img
+                                src={message.file_url}
                                 alt={message.content || 'Sticker'}
                                 className="w-24 h-24 object-contain"
                               />
                             </div>
                           )}
-                          
+
                           {message.message_type === 'text' && <p>{message.content}</p>}
                           <div className="flex items-center justify-between mt-1">
                             <p className={cn(
@@ -796,6 +797,11 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
                                 <Edit2 className="h-3 w-3" />
                               </Button>
                             )}
+                            <MessageForwarding 
+                              message={message} 
+                              onForward={() => {
+                              }}
+                            />
                             {canDeleteMessage(message) && (
                               <Button
                                 size="sm"
@@ -845,7 +851,7 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
             </div>
           </div>
         )}
-        
+
         <form onSubmit={sendMessage} className="flex gap-2">
           <input
             ref={fileInputRef}
@@ -854,9 +860,9 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
             onChange={handleFileSelect}
             accept="*/*"
           />
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
@@ -864,7 +870,7 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
           >
             <Paperclip className="h-4 w-4" />
           </Button>
-          
+
           <div className="flex-1 relative">
             <Input
               placeholder={replyingTo ? "Reply to message..." : "Type a message..."}
@@ -877,9 +883,9 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
               onGifSelect={sendGif}
               onStickerSelect={sendSticker}
               trigger={
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
+                <Button
+                  variant="ghost"
+                  size="icon"
                   type="button"
                   className="absolute right-1 top-1/2 transform -translate-y-1/2"
                 >
@@ -888,7 +894,7 @@ export function ChatWindow({ roomId }: ChatWindowProps) {
               }
             />
           </div>
-          
+
           <Button type="submit" disabled={!newMessage.trim() || loading}>
             <Send className="h-4 w-4" />
           </Button>
